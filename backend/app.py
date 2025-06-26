@@ -20,6 +20,12 @@ co = cohere.Client(os.getenv("VhxqoBjW6yKXig7FVNiLYpKJMmpB82w1EWVkbreR"))
 app = Flask(__name__)
 CORS(app)
 
+
+@app.route("/")
+def home():
+    return "✅ SmartStudy AI Backend is Working!"
+
+
 # Allowed file types
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 
