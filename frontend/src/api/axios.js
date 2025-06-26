@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:5000",
+  baseURL: process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000",
   headers: {
     "Content-Type": "application/json",
   },
