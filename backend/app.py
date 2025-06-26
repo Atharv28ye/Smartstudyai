@@ -18,7 +18,7 @@ co = cohere.Client(os.getenv("VhxqoBjW6yKXig7FVNiLYpKJMmpB82w1EWVkbreR"))
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "https://smartstudyai-five.vercel.app"}})
 
 
 @app.route("/")
