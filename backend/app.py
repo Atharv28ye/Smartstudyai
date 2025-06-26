@@ -18,13 +18,16 @@ co = cohere.Client(os.getenv("VhxqoBjW6yKXig7FVNiLYpKJMmpB82w1EWVkbreR"))
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://smartstudyai-five.vercel.app"}})
 
+# ✅ Allow both Vercel frontend URLs
+CORS(app, resources={r"/*": {"origins": [
+    "https://smartstudyai-five.vercel.app",
+    "https://smartstudyai-ch2fs24k0-atharvs-projects-37deeae1.vercel.app"
+]}})
 
 @app.route("/")
 def home():
     return "✅ SmartStudy AI Backend is Working!"
-
 
 # Allowed file types
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
@@ -126,16 +129,14 @@ Text:
 {input_text}
 """
 
-        # ✅ Get response from Cohere
         response = co.chat(message=prompt, model="command-r-plus")
         content = response.text.strip()
 
-        # ✅ Extract JSON array using regex
         match = re.search(r"\[.*\]", content, re.DOTALL)
         if match:
             quiz_data = json.loads(match.group())
         else:
-            quiz_data = json.loads(content)  # fallback
+            quiz_data = json.loads(content)
 
         return jsonify({"quiz": quiz_data})
 
@@ -152,7 +153,6 @@ def generate_flashcards():
     file = request.files.get("file")
     file_text = ""
 
-    # File extraction logic
     if file:
         filename = secure_filename(file.filename)
         file_path = os.path.join("uploads", filename)
@@ -170,14 +170,13 @@ def generate_flashcards():
             os.remove(file_path)
             return jsonify({"error": "Unsupported file format"}), 400
 
-        os.remove(file_path)  # Clean up
+        os.remove(file_path)
 
     final_text = (text or "").strip() + "\n" + (file_text or "").strip()
 
     if not final_text.strip():
         return jsonify({"error": "No content to generate flashcards"}), 400
 
-    # Strong prompt to ensure all fields are filled
     prompt = (
         f"Generate {count} flashcards as a JSON array. "
         "Each object must have these fields (no empty values!): "
@@ -196,16 +195,14 @@ def generate_flashcards():
         print("💬 Cohere Raw Response:")
         print(raw_text)
 
-        # Try extracting just the JSON array using regex
         match = re.search(r"\[.*\]", raw_text, re.DOTALL)
         if match:
             json_str = match.group()
         else:
-            json_str = raw_text  # fallback
+            json_str = raw_text
 
         flashcards = json.loads(json_str)
 
-        # Filter out any incomplete cards
         cleaned = []
         for card in flashcards:
             if (
@@ -216,24 +213,18 @@ def generate_flashcards():
             ):
                 cleaned.append(card)
 
-        # Debug print for frontend
-        print("Returning flashcards:", cleaned)
-
         if not cleaned:
-            # Return a default card for testing the frontend
             default = [{
                 "question": "Default question: Why is the sky blue?",
                 "answer": "Because of Rayleigh scattering.",
                 "hint": "Think about sunlight and atmosphere.",
                 "explanation": "Short wavelengths scatter more in the atmosphere."
             }]
-            print("No valid flashcards generated. Returning default for debugging.")
             return jsonify({"flashcards": default}), 200
 
         return jsonify({"flashcards": cleaned})
     except Exception as e:
         print("❌ Flashcard Parsing Error:", e)
-        # Return a default card for debugging frontend
         default = [{
             "question": "Default question: Why is the sky blue?",
             "answer": "Because of Rayleigh scattering.",
