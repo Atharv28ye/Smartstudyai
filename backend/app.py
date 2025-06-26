@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from dotenv import load_dotenv
 import cohere
 import os
@@ -13,23 +13,28 @@ import re
 # Load environment variables
 load_dotenv()
 
-# ✅ Configure Cohere API
 co = cohere.Client(os.getenv("VhxqoBjW6yKXig7FVNiLYpKJMmpB82w1EWVkbreR"))
 
-# Initialize Flask app
 app = Flask(__name__)
 
-# ✅ Allow both Vercel frontend URLs
-CORS(app, resources={r"/*": {"origins": [
+# ✅ Apply Global CORS
+CORS(app, origins=[
     "https://smartstudyai-five.vercel.app",
     "https://smartstudyai-ch2fs24k0-atharvs-projects-37deeae1.vercel.app"
-]}})
+], supports_credentials=True)
 
-@app.route("/")
+@app.after_request
+def apply_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "")
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+    return response
+
+@app.route("/", methods=["GET", "OPTIONS"])
 def home():
     return "✅ SmartStudy AI Backend is Working!"
 
-# Allowed file types
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 
 def allowed_file(filename):
@@ -53,7 +58,7 @@ def extract_text_from_docx(file_path):
     raw = "\n".join(para.text for para in doc.paragraphs)
     return clean_text(raw)
 
-@app.route("/upload-file", methods=["POST"])
+@app.route("/upload-file", methods=["POST", "OPTIONS"])
 def upload_file():
     if "file" not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
@@ -82,7 +87,7 @@ def upload_file():
 
     return jsonify({"error": "Invalid file type"}), 400
 
-@app.route("/generate-summary", methods=["POST"])
+@app.route("/generate-summary", methods=["POST", "OPTIONS"])
 def generate_summary():
     try:
         input_text = request.json.get("text", "")
@@ -106,7 +111,7 @@ def generate_summary():
         print("❌ Summary Error:", e)
         return jsonify({"error": "Failed to generate summary"}), 500
 
-@app.route("/generate-quiz", methods=["POST"])
+@app.route("/generate-quiz", methods=["POST", "OPTIONS"])
 def generate_quiz():
     try:
         input_text = request.json.get("text", "")
@@ -146,7 +151,7 @@ Text:
         traceback.print_exc()
         return jsonify({"error": "Failed to generate quiz"}), 500
 
-@app.route("/flashcards", methods=["POST"])
+@app.route("/flashcards", methods=["POST", "OPTIONS"])
 def generate_flashcards():
     text = request.form.get("text", "")
     count = int(request.form.get("count", 10))
@@ -192,9 +197,6 @@ def generate_flashcards():
     try:
         response = co.chat(model="command-r-plus", message=prompt)
         raw_text = response.text.strip()
-        print("💬 Cohere Raw Response:")
-        print(raw_text)
-
         match = re.search(r"\[.*\]", raw_text, re.DOTALL)
         if match:
             json_str = match.group()
@@ -202,38 +204,28 @@ def generate_flashcards():
             json_str = raw_text
 
         flashcards = json.loads(json_str)
-
-        cleaned = []
-        for card in flashcards:
-            if (
-                isinstance(card, dict)
-                and all(k in card for k in ("question", "answer", "hint", "explanation"))
-                and card["question"].strip()
-                and card["answer"].strip()
-            ):
-                cleaned.append(card)
+        cleaned = [card for card in flashcards if all(
+            k in card and card[k].strip() for k in ("question", "answer", "hint", "explanation"))]
 
         if not cleaned:
-            default = [{
+            return jsonify({"flashcards": [{
                 "question": "Default question: Why is the sky blue?",
                 "answer": "Because of Rayleigh scattering.",
                 "hint": "Think about sunlight and atmosphere.",
                 "explanation": "Short wavelengths scatter more in the atmosphere."
-            }]
-            return jsonify({"flashcards": default}), 200
+            }]}), 200
 
         return jsonify({"flashcards": cleaned})
     except Exception as e:
         print("❌ Flashcard Parsing Error:", e)
-        default = [{
+        return jsonify({"flashcards": [{
             "question": "Default question: Why is the sky blue?",
             "answer": "Because of Rayleigh scattering.",
             "hint": "Think about sunlight and atmosphere.",
             "explanation": "Short wavelengths scatter more in the atmosphere."
-        }]
-        return jsonify({"flashcards": default}), 200
+        }]}), 200
 
-@app.route("/chat", methods=["POST"])
+@app.route("/chat", methods=["POST", "OPTIONS"])
 def chatbot_reply():
     try:
         data = request.json
@@ -287,7 +279,7 @@ Follow-Up Prompts:
         print("❌ Chatbot Error:", e)
         return jsonify({"error": "Failed to generate response"}), 500
 
-@app.route("/generate-hint", methods=["POST"])
+@app.route("/generate-hint", methods=["POST", "OPTIONS"])
 def generate_hint():
     try:
         question = request.json.get("question", "")
@@ -304,7 +296,7 @@ def generate_hint():
         print("❌ Hint Error:", e)
         return jsonify({"error": "Failed to generate hint"}), 500
 
-@app.route("/explain-answer", methods=["POST"])
+@app.route("/explain-answer", methods=["POST", "OPTIONS"])
 def explain_answer():
     try:
         question = request.json.get("question", "")
