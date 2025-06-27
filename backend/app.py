@@ -21,7 +21,7 @@ app = Flask(__name__)
 CORS(app, origins=[
     "https://smartstudyai-five.vercel.app",
     "https://smartstudyai-ch2fs24k0-atharvs-projects-37deeae1.vercel.app"
-], supports_credentials=True)
+], supports_credentials=True, allow_headers="*", methods=["GET", "POST", "OPTIONS"])
 
 @app.after_request
 def apply_cors_headers(response):
