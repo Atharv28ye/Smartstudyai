@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 from dotenv import load_dotenv
 import cohere
 import os
@@ -17,19 +17,9 @@ co = cohere.Client(os.getenv("VhxqoBjW6yKXig7FVNiLYpKJMmpB82w1EWVkbreR"))
 
 app = Flask(__name__)
 
-# ✅ Apply Global CORS
-CORS(app, origins=[
-    "https://smartstudyai-five.vercel.app",
-    "https://smartstudyai-ch2fs24k0-atharvs-projects-37deeae1.vercel.app"
-], supports_credentials=True, allow_headers="*", methods=["GET", "POST", "OPTIONS"])
+# ✅ Apply Global CORS for All Origins (allow all websites)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-@app.after_request
-def apply_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "")
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
-    return response
 
 @app.route("/", methods=["GET", "OPTIONS"])
 def home():
