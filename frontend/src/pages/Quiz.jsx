@@ -4,11 +4,15 @@ import api from "../api/axios";
 // Quiz fetch
 const getQuiz = async (text, count, difficulty) => {
   try {
-    const res = await api.post("/generate-quiz", {
-      text,
-      count,
-      difficulty,
-    });
+    const res = await api.post(
+      "/generate-quiz",
+      { text, count, difficulty },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
     const quizData = res.data.quiz;
     return Array.isArray(quizData) ? quizData : [];
   } catch (err) {
@@ -16,6 +20,7 @@ const getQuiz = async (text, count, difficulty) => {
     return [];
   }
 };
+
 
 // Hint fetch
 const getHint = async (question, context) => {

@@ -1,4 +1,3 @@
-// src/api/axios.js
 import axios from "axios";
 
 const api = axios.create({
@@ -6,6 +5,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: false  // 🔥 Add this line
 });
 
 export default api;

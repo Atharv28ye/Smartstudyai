@@ -80,9 +80,11 @@ export default function Summary() {
         style,
       });
       setSummary(res.data.summary || "No summary received.");
-    } catch {
-      alert("Failed to generate summary.");
-    } finally {
+    } catch (err) {
+  console.error("Summary error:", err);
+  alert("Failed to generate summary.");
+}
+ finally {
       setLoading(false);
     }
   };

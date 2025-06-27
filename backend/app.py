@@ -13,20 +13,14 @@ import re
 # Load environment variables
 load_dotenv()
 
-co = cohere.Client(os.getenv("VhxqoBjW6yKXig7FVNiLYpKJMmpB82w1EWVkbreR"))
+co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
 app = Flask(__name__)
-
-# ✅ Apply Global CORS for All Origins (allow all websites)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-
-@app.route("/", methods=["GET", "OPTIONS"])
-def home():
-    return "✅ SmartStudy AI Backend is Working!"
+CORS(app, supports_credentials=False)
 
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 
+# --- UTILS ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -45,10 +39,14 @@ def extract_text_from_pdf(file_path):
 
 def extract_text_from_docx(file_path):
     doc = docx.Document(file_path)
-    raw = "\n".join(para.text for para in doc.paragraphs)
-    return clean_text(raw)
+    return clean_text("\n".join(para.text for para in doc.paragraphs))
 
-@app.route("/upload-file", methods=["POST", "OPTIONS"])
+# --- ROUTES ---
+@app.route("/", methods=["GET"])
+def home():
+    return "✅ SmartStudy AI Backend is Running!"
+
+@app.route("/upload-file", methods=["POST"])
 def upload_file():
     if "file" not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
@@ -72,85 +70,143 @@ def upload_file():
 
                 return jsonify({"text": extracted_text})
             except Exception as e:
-                print("❌ File Processing Error:", e)
-                return jsonify({"error": "Failed to extract text from file"}), 500
+                return jsonify({"error": f"File processing error: {str(e)}"}), 500
 
     return jsonify({"error": "Invalid file type"}), 400
 
-@app.route("/generate-summary", methods=["POST", "OPTIONS"])
+@app.route("/generate-summary", methods=["POST"])
 def generate_summary():
-    # 🔒 Check if request is JSON
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Missing JSON payload"}), 400
 
+    input_text = data.get("text", "")
+    style = data.get("style", "concise")
+
+    if not input_text.strip():
+        return jsonify({"error": "No text provided"}), 400
+
+    style_instruction = {
+        "concise": "Write a short and to-the-point paragraph summary.",
+        "detailed": "Provide a detailed summary with key points.",
+        "numbered": "Summarize in 5-10 numbered points.",
+        "simplified": "Summarize in simplified English for a 10th grader."
+    }.get(style, "Write a short and to-the-point paragraph summary.")
+
+    prompt = f"{style_instruction}\n\nText:\n{input_text}"
     try:
-        input_text = request.json.get("text", "")
-        style = request.json.get("style", "concise")
-
-        if not input_text.strip():
-            return jsonify({"error": "No text provided"}), 400
-
-        style_instruction = {
-            "concise": "Write a short and to-the-point paragraph summary of the following content.",
-            "detailed": "Provide a detailed summary with key points, examples, and supporting information in a clear paragraph format.",
-            "numbered": "Summarize the following content in at least 5 to 10 numbered points.",
-            "simplified": "Summarize in simplified, easy-to-understand English for a 10th-grade student."
-        }.get(style, "Write a short and to-the-point paragraph summary of the following content.")
-
-        prompt = f"{style_instruction}\n\nText:\n{input_text}"
         response = co.chat(message=prompt, model="command-r-plus")
-
         return jsonify({"summary": response.text.strip()})
     except Exception as e:
-        print("❌ Summary Error:", e)
-        return jsonify({"error": "Failed to generate summary"}), 500
+        return jsonify({"error": f"Summary generation failed: {str(e)}"}), 500
 
-
-@app.route("/generate-quiz", methods=["POST", "OPTIONS"])
+@app.route("/generate-quiz", methods=["POST"])
 def generate_quiz():
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Missing JSON payload"}), 400
 
-    try:
-        input_text = request.json.get("text", "")
-        count = request.json.get("count", 5)
-        difficulty = request.json.get("difficulty", "medium")
+    input_text = data.get("text", "")
+    count = data.get("count", 5)
+    difficulty = data.get("difficulty", "medium")
 
-        if not input_text.strip():
-            return jsonify({"error": "No text provided"}), 400
+    if not input_text.strip():
+        return jsonify({"error": "No text provided"}), 400
 
-        prompt = f"""
+    prompt = f"""
 Generate {count} multiple-choice questions from the following text.
-Make them {difficulty} difficulty level. Each question must include:
-- question
-- options (a list of 4 options)
-- correct_answer
-
-Return ONLY a JSON array of objects, no explanation or notes.
+Difficulty: {difficulty}
+Each question must include: question, options, correct_answer
+Respond ONLY with JSON array.
 
 Text:
 {input_text}
 """
-
+    try:
         response = co.chat(message=prompt, model="command-r-plus")
         content = response.text.strip()
-
         match = re.search(r"\[.*\]", content, re.DOTALL)
-        if match:
-            quiz_data = json.loads(match.group())
-        else:
-            quiz_data = json.loads(content)
-
+        quiz_data = json.loads(match.group()) if match else json.loads(content)
         return jsonify({"quiz": quiz_data})
+    except Exception as e:
+        return jsonify({"error": f"Quiz generation failed: {str(e)}"}), 500
+
+@app.route("/generate-hint", methods=["POST"])
+def generate_hint():
+    data = request.get_json()
+    question = data.get("question", "")
+    context = data.get("context", "")
+
+    if not question.strip():
+        return jsonify({"error": "Question is required"}), 400
+
+    prompt = f"Give a helpful hint for this MCQ based on the context.\n\nQuestion: {question}\n\nContext:\n{context}"
+    try:
+        response = co.chat(message=prompt, model="command-r-plus")
+        return jsonify({"hint": response.text.strip()})
+    except Exception as e:
+        return jsonify({"error": f"Hint generation failed: {str(e)}"}), 500
+    
+@app.route("/chat", methods=["POST"])
+
+def chatbot_reply():
+    # ✅ Ensure JSON request to prevent 415 Unsupported Media Type
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+
+    try:
+        data = request.json
+        user_message = data.get("message", "").strip()
+        context = data.get("context", "")
+        history = data.get("history", [])
+
+        if not user_message:
+            return jsonify({"error": "Empty message"}), 400
+
+        history_text = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history])
+
+        prompt = f"""
+You are SmartStudy AI, a helpful academic assistant.
+
+Here is the previous chat history:
+{history_text}
+
+Context: {context}
+
+Now answer the new message below. Always include proper **citations**, references, or source links if available.
+Then suggest 2–3 follow-up questions.
+
+User: {user_message}
+
+Format:
+Answer: <your answer with citations or source links>
+
+Follow-Up Prompts:
+1. <first question>
+2. <second question>
+3. <third question>
+"""
+
+        response = co.chat(message=prompt, model="command-r-plus")
+        text = response.text.strip()
+
+        if "Follow-Up Prompts:" in text:
+            answer, followups = text.split("Follow-Up Prompts:")
+            followup_lines = [line.strip() for line in followups.strip().split("\n") if line.strip()]
+        else:
+            answer = text
+            followup_lines = []
+
+        return jsonify({
+            "reply": answer.strip(),
+            "followups": followup_lines[:3]
+        })
 
     except Exception as e:
-        import traceback
-        print("❌ Quiz generation error:", e)
-        traceback.print_exc()
-        return jsonify({"error": "Failed to generate quiz"}), 500
+        print("❌ Chatbot Error:", e)
+        return jsonify({"error": "Failed to generate response"}), 500         
 
-
-@app.route("/flashcards", methods=["POST", "OPTIONS"])
+@app.route("/flashcards", methods=["POST",])
 def generate_flashcards():
     # ✅ Check for multipart/form-data (required for file uploads)
     if not request.content_type.startswith("multipart/form-data"):
@@ -226,114 +282,28 @@ DEFAULT_FLASHCARD = {
     "explanation": "Short wavelengths scatter more in the atmosphere."
 }
 
-
-@app.route("/chat", methods=["POST", "OPTIONS"])
-def chatbot_reply():
-    # ✅ Ensure JSON request to prevent 415 Unsupported Media Type
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
-
-    try:
-        data = request.json
-        user_message = data.get("message", "").strip()
-        context = data.get("context", "")
-        history = data.get("history", [])
-
-        if not user_message:
-            return jsonify({"error": "Empty message"}), 400
-
-        history_text = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history])
-
-        prompt = f"""
-You are SmartStudy AI, a helpful academic assistant.
-
-Here is the previous chat history:
-{history_text}
-
-Context: {context}
-
-Now answer the new message below. Always include proper **citations**, references, or source links if available.
-Then suggest 2–3 follow-up questions.
-
-User: {user_message}
-
-Format:
-Answer: <your answer with citations or source links>
-
-Follow-Up Prompts:
-1. <first question>
-2. <second question>
-3. <third question>
-"""
-
-        response = co.chat(message=prompt, model="command-r-plus")
-        text = response.text.strip()
-
-        if "Follow-Up Prompts:" in text:
-            answer, followups = text.split("Follow-Up Prompts:")
-            followup_lines = [line.strip() for line in followups.strip().split("\n") if line.strip()]
-        else:
-            answer = text
-            followup_lines = []
-
-        return jsonify({
-            "reply": answer.strip(),
-            "followups": followup_lines[:3]
-        })
-
-    except Exception as e:
-        print("❌ Chatbot Error:", e)
-        return jsonify({"error": "Failed to generate response"}), 500
-
-
-@app.route("/generate-hint", methods=["POST", "OPTIONS"])
-def generate_hint():
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
-
-    try:
-        question = request.json.get("question", "")
-        context = request.json.get("context", "")
-
-        if not question.strip():
-            return jsonify({"error": "Question text missing"}), 400
-
-        prompt = f"Give a helpful hint for this MCQ using the context below.\n\nQuestion: {question}\n\nContext:\n{context}"
-        response = co.chat(message=prompt, model="command-r-plus")
-
-        return jsonify({"hint": response.text.strip()})
-    except Exception as e:
-        print("❌ Hint Error:", e)
-        return jsonify({"error": "Failed to generate hint"}), 500
-
-
-@app.route("/explain-answer", methods=["POST", "OPTIONS"])
+@app.route("/explain-answer", methods=["POST"])
 def explain_answer():
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
+    data = request.get_json()
+    question = data.get("question", "")
+    correct_answer = data.get("correct_answer", "")
+    user_answer = data.get("user_answer", "")
+    context = data.get("context", "")
 
-    try:
-        question = request.json.get("question", "")
-        correct_answer = request.json.get("correct_answer", "")
-        user_answer = request.json.get("user_answer", "")
-        context = request.json.get("context", "")
+    if not question or not correct_answer:
+        return jsonify({"error": "Missing data"}), 400
 
-        if not question or not correct_answer:
-            return jsonify({"error": "Missing required data"}), 400
+    prompt = f"""
+Explain why \"{correct_answer}\" is correct for the question: \"{question}\".
+Mention if \"{user_answer}\" is wrong, and explain why using the context:
 
-        prompt = f"""You are an AI tutor. Explain why the answer \"{correct_answer}\" is correct for the question below. 
-Also mention if the user's selected answer \"{user_answer}\" is incorrect, why it's wrong, based on the context.
-
-Question: {question}
-Context: {context}
+{context}
 """
+    try:
         response = co.chat(message=prompt, model="command-r-plus")
-
         return jsonify({"explanation": response.text.strip()})
     except Exception as e:
-        print("❌ Explanation Error:", e)
-        return jsonify({"error": "Failed to generate explanation"}), 500
-
+        return jsonify({"error": f"Explanation failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
