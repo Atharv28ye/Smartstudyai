@@ -89,6 +89,10 @@ def upload_file():
 
 @app.route("/generate-summary", methods=["POST", "OPTIONS"])
 def generate_summary():
+    # 🔒 Check if request is JSON
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+
     try:
         input_text = request.json.get("text", "")
         style = request.json.get("style", "concise")
@@ -111,8 +115,12 @@ def generate_summary():
         print("❌ Summary Error:", e)
         return jsonify({"error": "Failed to generate summary"}), 500
 
+
 @app.route("/generate-quiz", methods=["POST", "OPTIONS"])
 def generate_quiz():
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+
     try:
         input_text = request.json.get("text", "")
         count = request.json.get("count", 5)
@@ -151,8 +159,13 @@ Text:
         traceback.print_exc()
         return jsonify({"error": "Failed to generate quiz"}), 500
 
+
 @app.route("/flashcards", methods=["POST", "OPTIONS"])
 def generate_flashcards():
+    # ✅ Check for multipart/form-data (required for file uploads)
+    if not request.content_type.startswith("multipart/form-data"):
+        return jsonify({"error": "Content-Type must be multipart/form-data"}), 415
+
     text = request.form.get("text", "")
     count = int(request.form.get("count", 10))
     file = request.files.get("file")
@@ -208,25 +221,28 @@ def generate_flashcards():
             k in card and card[k].strip() for k in ("question", "answer", "hint", "explanation"))]
 
         if not cleaned:
-            return jsonify({"flashcards": [{
-                "question": "Default question: Why is the sky blue?",
-                "answer": "Because of Rayleigh scattering.",
-                "hint": "Think about sunlight and atmosphere.",
-                "explanation": "Short wavelengths scatter more in the atmosphere."
-            }]}), 200
+            return jsonify({"flashcards": [DEFAULT_FLASHCARD]}), 200
 
         return jsonify({"flashcards": cleaned})
     except Exception as e:
         print("❌ Flashcard Parsing Error:", e)
-        return jsonify({"flashcards": [{
-            "question": "Default question: Why is the sky blue?",
-            "answer": "Because of Rayleigh scattering.",
-            "hint": "Think about sunlight and atmosphere.",
-            "explanation": "Short wavelengths scatter more in the atmosphere."
-        }]}), 200
+        return jsonify({"flashcards": [DEFAULT_FLASHCARD]}), 200
+
+# Optional: define a reusable fallback card
+DEFAULT_FLASHCARD = {
+    "question": "Default question: Why is the sky blue?",
+    "answer": "Because of Rayleigh scattering.",
+    "hint": "Think about sunlight and atmosphere.",
+    "explanation": "Short wavelengths scatter more in the atmosphere."
+}
+
 
 @app.route("/chat", methods=["POST", "OPTIONS"])
 def chatbot_reply():
+    # ✅ Ensure JSON request to prevent 415 Unsupported Media Type
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+
     try:
         data = request.json
         user_message = data.get("message", "").strip()
@@ -279,8 +295,12 @@ Follow-Up Prompts:
         print("❌ Chatbot Error:", e)
         return jsonify({"error": "Failed to generate response"}), 500
 
+
 @app.route("/generate-hint", methods=["POST", "OPTIONS"])
 def generate_hint():
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+
     try:
         question = request.json.get("question", "")
         context = request.json.get("context", "")
@@ -296,8 +316,12 @@ def generate_hint():
         print("❌ Hint Error:", e)
         return jsonify({"error": "Failed to generate hint"}), 500
 
+
 @app.route("/explain-answer", methods=["POST", "OPTIONS"])
 def explain_answer():
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+
     try:
         question = request.json.get("question", "")
         correct_answer = request.json.get("correct_answer", "")
@@ -319,6 +343,7 @@ Context: {context}
     except Exception as e:
         print("❌ Explanation Error:", e)
         return jsonify({"error": "Failed to generate explanation"}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)
