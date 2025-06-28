@@ -16,7 +16,7 @@ load_dotenv()
 co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
 app = Flask(__name__)
-CORS(app, supports_credentials=False)
+CORS(app,)
 
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 
