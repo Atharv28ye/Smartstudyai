@@ -66,4 +66,13 @@ python app.py
    cd /frontend
    npm install
    npm start
+IMAGE DEMO -
+1. Home.png - https://github.com/user-attachments/assets/54ec58df-cfb1-473b-9c4f-7ee21bd9759f
+2. Summarizer - https://github.com/user-attachments/assets/65359d39-9575-47d6-894a-771d9d578ad8
+3. Chatbot - https://github.com/user-attachments/assets/84da90ef-321e-47ae-94e3-4e91402e338d
+4. Quiz.1 - https://github.com/user-attachments/assets/3a9cf0d5-6931-4aa0-9c90-aa1838ab7881
+5. Quiz.2 - https://github.com/user-attachments/assets/7929945b-e2a0-4902-92b7-2befda2eb85f
+6. Flashcards.1 - https://github.com/user-attachments/assets/3c978531-9b0c-47f5-aee8-84678e975782
+7. Flashcards.2- https://github.com/user-attachments/assets/648ddb72-5040-4cae-89eb-daabf1edffc5
+   
 
