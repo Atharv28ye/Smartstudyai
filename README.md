@@ -51,3 +51,19 @@ smartstudy-ai/
 │ └── public/
 ├── README.md
 
+
+📌 Getting Started
+1. Clone the Repository
+   git clone https://github.com/Atharv28ye/Smartstudyai.git
+cd Smartstudyai
+
+2. Start Backend
+   cd backend
+pip install -r requirements.txt
+python app.py
+
+3. Start Frontend
+   cd /frontend
+   npm install
+   npm start
+
